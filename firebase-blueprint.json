@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "Letter": {
+      "title": "Letter",
+      "description": "Kids gift request letter with three options and photo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique letter ID e.g. A-101" },
+        "folioType": { "type": "string", "description": "Event character ID e.g. A, B, C, X, G" },
+        "folio": { "type": "number", "description": "Manual numeric folio number" },
+        "kidName": { "type": "string", "description": "Full name of the child" },
+        "age": { "type": "number", "description": "Age of the child" },
+        "gender": { "type": "string", "enum": ["Niño", "Niña"], "description": "Gender of child" },
+        "school": { "type": "string", "description": "Elementary school" },
+        "celphone": { "type": "string", "description": "Contact phone number" },
+        "toyRequest": { "type": "string", "description": "Toy requested (Priority)" },
+        "clothingRequest": { "type": "string", "description": "Clothing requested" },
+        "schoolItemRequest": { "type": "string", "description": "School supply requested" },
+        "leaderId": { "type": "string", "description": "Assigned leader ID" },
+        "leaderName": { "type": "string", "description": "Leader full name" },
+        "coordinatorId": { "type": "string", "description": "Assigned coordinator ID" },
+        "coordinatorName": { "type": "string", "description": "Coordinator full name" },
+        "donorId": { "type": "string", "description": "Assigned donor ID" },
+        "donorName": { "type": "string", "description": "Donor full name" },
+        "photoUrl": { "type": "string", "description": "Storage download URL of physical letter photo" },
+        "picId": { "type": "string", "description": "UUID identifier of stored physical letter photo in bucket" },
+        "photoMetadata": {
+          "type": "object",
+          "description": "Metadata for the physical letter photo stored in bucket",
+          "properties": {
+            "picId": { "type": "string", "description": "UUID generated as id of the file" },
+            "originalName": { "type": "string", "description": "Original name of the file" },
+            "fileType": { "type": "string", "enum": ["JPG", "GIF", "BMP", "PNG", "JPEG"], "description": "Type of file" },
+            "size": { "type": "number", "description": "File size in bytes" },
+            "bucket": { "type": "string", "description": "Bucket name" },
+            "storagePath": { "type": "string", "description": "Path in the bucket" }
+          }
+        },
+        "isArchived": { "type": "boolean", "description": "Soft deleted archive state" },
+        "isLocked": { "type": "boolean", "description": "Closed/locked state by leader under NC privilege" },
+        "createdAt": { "type": "string", "description": "Creation date" }
+      },
+      "required": ["id", "folioType", "folio", "kidName", "age", "gender", "school", "toyRequest"]
+    },
+    "GiftGivingEvent": {
+      "title": "GiftGivingEvent",
+      "description": "Event day for handing out presents to children",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Single character identifier e.g. A, B, C, X, G" },
+        "location": { "type": "string", "description": "Event location municipality" },
+        "dates": { "type": "string", "description": "Dates of the event" },
+        "goal": { "type": "number", "description": "Target number of letters to fulfill" }
+      },
+      "required": ["id", "location", "dates", "goal"]
+    },
+    "School": {
+      "title": "School",
+      "description": "Elementary school catalog item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique school catalog ID" },
+        "name": { "type": "string", "description": "Name of the elementary school" },
+        "zone": { "type": "string", "description": "Geographical zone" }
+      },
+      "required": ["id", "name"]
+    },
+    "Leader": {
+      "title": "Leader",
+      "description": "Team leader volunteer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Leader ID" },
+        "firstName": { "type": "string", "description": "First name" },
+        "lastName": { "type": "string", "description": "Last name" },
+        "email": { "type": "string", "description": "Email address" },
+        "whatsapp": { "type": "string", "description": "WhatsApp phone number" },
+        "teamColor": { "type": "string", "description": "Team color identifier" },
+        "teamCode": { "type": "string", "description": "Single character team code" }
+      },
+      "required": ["id", "firstName", "lastName", "email", "teamColor"]
+    },
+    "Coordinator": {
+      "title": "Coordinator",
+      "description": "Coordinator volunteer reporting to a leader",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Coordinator ID" },
+        "firstName": { "type": "string", "description": "First name" },
+        "lastName": { "type": "string", "description": "Last name" },
+        "email": { "type": "string", "description": "Email address" },
+        "whatsapp": { "type": "string", "description": "WhatsApp phone number" },
+        "school": { "type": "string", "description": "School where coordinator studies" },
+        "grade": { "type": "string", "description": "School grade" },
+        "leaderId": { "type": "string", "description": "Leader ID to whom coordinator reports" },
+        "leaderName": { "type": "string", "description": "Leader name" }
+      },
+      "required": ["id", "firstName", "lastName", "leaderId"]
+    },
+    "Donor": {
+      "title": "Donor",
+      "description": "Donor/padrino who purchases gift for child",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Donor ID" },
+        "firstName": { "type": "string", "description": "First name" },
+        "lastName": { "type": "string", "description": "Last name" },
+        "email": { "type": "string", "description": "Email address" },
+        "whatsapp": { "type": "string", "description": "WhatsApp number" },
+        "coordinatorId": { "type": "string", "description": "Assigned coordinator ID" },
+        "coordinatorName": { "type": "string", "description": "Assigned coordinator name" },
+        "coordinatorRelationship": { "type": "string", "description": "Relationship with coordinator" }
+      },
+      "required": ["id", "firstName", "lastName", "coordinatorId"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Application user account with RBAC role",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User ID or UID" },
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "description": "Google email" },
+        "roleId": { "type": "string", "description": "Assigned role ID" },
+        "roleName": { "type": "string", "description": "Assigned role name" },
+        "customRoleIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional custom roles assigned to the user"
+        },
+        "assignedLeaderId": { "type": "string", "description": "Linked leader ID if applicable" },
+        "assignedCoordinatorId": { "type": "string", "description": "Linked coordinator ID if applicable" },
+        "active": { "type": "boolean", "description": "Whether account is active" }
+      },
+      "required": ["id", "name", "email", "roleId", "roleName"]
+    },
+    "CustomRole": {
+      "title": "CustomRole",
+      "description": "Role definition with 11 granular permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Role ID" },
+        "name": { "type": "string", "description": "Role display name" },
+        "description": { "type": "string", "description": "Role purpose" }
+      },
+      "required": ["id", "name"]
+    }
+  },
+  "firestore": {
+    "/letters/{letterId}": {
+      "schema": { "$ref": "Letter" },
+      "description": "Kids gift request letters"
+    },
+    "/events/{eventId}": {
+      "schema": { "$ref": "GiftGivingEvent" },
+      "description": "Gift-giving day events"
+    },
+    "/schools/{schoolId}": {
+      "schema": { "$ref": "School" },
+      "description": "Elementary schools catalog"
+    },
+    "/leaders/{leaderId}": {
+      "schema": { "$ref": "Leader" },
+      "description": "Team leaders"
+    },
+    "/coordinators/{coordinatorId}": {
+      "schema": { "$ref": "Coordinator" },
+      "description": "Coordinators"
+    },
+    "/donors/{donorId}": {
+      "schema": { "$ref": "Donor" },
+      "description": "Donors and sponsors"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "System user profiles"
+    },
+    "/roles/{roleId}": {
+      "schema": { "$ref": "CustomRole" },
+      "description": "System role definitions and permissions"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection testing document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Admins registry
+    match /admins/{adminId} {
+      allow read, write: if true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Roles collection
+    match /roles/{roleId} {
+      allow read, write: if true;
+    }
+
+    // Letters collection
+    match /letters/{letterId} {
+      allow read, write: if true;
+    }
+
+    // Letter collection (alias)
+    match /letter/{letterId} {
+      allow read, write: if true;
+    }
+
+    // Events collection
+    match /events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // Schools collection
+    match /schools/{schoolId} {
+      allow read, write: if true;
+    }
+
+    // Leaders collection
+    match /leaders/{leaderId} {
+      allow read, write: if true;
+    }
+
+    // Coordinators collection
+    match /coordinators/{coordinatorId} {
+      allow read, write: if true;
+    }
+
+    // Donors collection
+    match /donors/{donorId} {
+      allow read, write: if true;
+    }
+
+    // App parameters collection
+    match /app_parameters/{parameterId} {
+      allow read, write: if true;
+    }
+  }
+}
+
