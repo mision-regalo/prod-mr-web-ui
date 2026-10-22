@@ -3,7 +3,7 @@
   "appId": "1:695798800793:web:5db8c39cebf19852bab308",
   "apiKey": "AIzaSyA_d6GqRwJdsGThe5GBseifHdwn7rFe-4k",
   "authDomain": "prod-mision-regalos.firebaseapp.com",
-  "firestoreDatabaseId": "prod-mision-regalos",
+  "firestoreDatabaseId": "prod-mision-regalos", 
   "storageBucket": "prod-mision-regalos.firebasestorage.app",
   "messagingSenderId": "695798800793",
   "measurementId": "",
