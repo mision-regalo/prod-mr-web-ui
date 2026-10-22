@@ -1,11 +1,11 @@
 {
-  "projectId": "gen-lang-client-0695399990",
-  "appId": "1:41418187605:web:e65edf0b85df092fd345dc",
-  "apiKey": "AIzaSyD-9l30mZfEi9ACMUB0iRuXCA1lpGdTCn8",
-  "authDomain": "gen-lang-client-0695399990.firebaseapp.com",
+  "projectId": "prod-mision-regalos",
+  "appId": "1:695798800793:web:5db8c39cebf19852bab308",
+  "apiKey": "AIzaSyA_d6GqRwJdsGThe5GBseifHdwn7rFe-4k",
+  "authDomain": "prod-mision-regalos.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-misinpresentesgd-5c328913-c40c-4747-840c-5b50aca4d354",
-  "storageBucket": "gen-lang-client-0695399990.firebasestorage.app",
-  "messagingSenderId": "41418187605",
+  "storageBucket": "prod-mision-regalos.firebasestorage.app",
+  "messagingSenderId": "695798800793",
   "measurementId": "",
   "oAuthClientId": "41418187605-b6s8nvtq99kf7elng5gulpkp0319grbv.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
