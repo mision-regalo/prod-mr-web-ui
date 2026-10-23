@@ -370,8 +370,13 @@ export default function App() {
 
   // Handler: Permanent Hard Delete (Admin only)
   const handleHardDeleteLetter = (letterId: string) => {
+    const target = letters.find((l) => l.id === letterId);
     setLetters((prev) => prev.filter((l) => l.id !== letterId));
-    deleteLetterFromDb(letterId);
+    deleteLetterFromDb(
+      letterId,
+      target?.picId || target?.photoMetadata?.picId,
+      target?.photoMetadata?.storagePath
+    );
   };
 
   // Handler: Add Received Present to a Letter

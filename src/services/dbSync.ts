@@ -176,11 +176,6 @@ export async function saveLetterToDb(letter: Letter): Promise<void> {
   const path = `letters/${letter.id}`;
   try {
     await setDoc(doc(db, 'letters', letter.id), cleanData(letter));
-    try {
-      await setDoc(doc(db, 'letter', letter.id), cleanData(letter));
-    } catch (err) {
-      console.warn('Could not mirror to letter collection:', err);
-    }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -190,18 +185,13 @@ export async function deleteLetterFromDb(letterId: string, picId?: string, stora
   const path = `letters/${letterId}`;
   if (picId) {
     try {
-      await deleteLetterPhoto(picId);
+      await deleteLetterPhoto(picId, storagePath?.split('.').pop());
     } catch (photoErr) {
       console.warn('Could not delete photo when deleting letter:', photoErr);
     }
   }
   try {
     await deleteDoc(doc(db, 'letters', letterId));
-    try {
-      await deleteDoc(doc(db, 'letter', letterId));
-    } catch (err) {
-      console.warn('Could not mirror delete to letter collection:', err);
-    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

@@ -17,14 +17,35 @@ import {
   deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
 import { LetterPhotoMetadata, PhotoFileType } from '../types';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with custom database ID (CRITICAL: Required for enterprise edition)
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+
+// Initialize Storage (direct browser uploads, secured by storage.rules)
+// Explicitly target the configured bucket so uploads don't fall back to the
+// project's default bucket (which may differ from VITE_FIREBASE_STORAGE_BUCKET).
+const storage = getStorage(app, `gs://${import.meta.env.VITE_FIREBASE_STORAGE_BUCKET}`);
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -133,41 +154,88 @@ export interface UploadPhotoResult {
   metadata: LetterPhotoMetadata;
 }
 
-// Upload Physical Letter Photo to Backend
+const PHOTO_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+
+function getPhotoType(ext: string): PhotoFileType {
+  const e = ext.toUpperCase();
+  return (['JPG', 'JPEG', 'PNG', 'GIF', 'BMP'].includes(e) ? e : 'JPG') as PhotoFileType;
+}
+
+// Upload Physical Letter Photo directly to Firebase Storage (no backend)
 export async function uploadLetterPhoto(
   letterId: string,
   file: File | Blob,
   oldPicId?: string,
   oldExt?: string
 ): Promise<UploadPhotoResult> {
-  const formData = new FormData();
-  formData.append('photo', file);
-  formData.append('letterId', letterId);
-  if (oldPicId) formData.append('oldPicId', oldPicId);
-  if (oldExt) formData.append('oldExt', oldExt);
+  if (oldPicId) await deleteLetterPhoto(oldPicId, oldExt).catch(() => {});
 
-  const response = await fetch('/api/upload-letter-photo', {
-    method: 'POST',
-    body: formData,
+  const picId = crypto.randomUUID();
+  const originalName = (file as File).name || 'photo.jpg';
+  const rawExt = originalName.includes('.') ? originalName.split('.').pop()!.toLowerCase() : '';
+  const ext = PHOTO_EXTS.includes(rawExt) ? rawExt : 'jpg';
+  const storagePath = `letters/${picId}.${ext}`;
+  const fileRef = ref(storage, storagePath);
+
+  await uploadBytes(fileRef, file, {
+    contentType: file.type || 'image/jpeg',
+    customMetadata: { picId, letterId, originalName },
   });
+  const photoUrl = await getDownloadURL(fileRef);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Backend upload failed: ${response.statusText}`);
-  }
-
-  const data = await response.json();
   return {
-    picId: data.picId,
-    photoUrl: data.photoUrl || `/api/photos/${data.picId}`,
-    metadata: data.metadata,
+    picId,
+    photoUrl,
+    metadata: {
+      picId,
+      originalName,
+      fileType: getPhotoType(ext),
+      size: file.size,
+      bucket: fileRef.bucket,
+      storagePath,
+      uploadedAt: new Date().toISOString(),
+    },
   };
 }
 
-// Delete Physical Letter Photo by picId from bucket and backend
-export async function deleteLetterPhoto(picId: string): Promise<void> {
+// Resolve a displayable URL for a stored photo (also handles legacy /api/photos/<id> references)
+export async function resolveLetterPhotoUrl(
+  picId?: string,
+  storagePath?: string,
+  currentUrl?: string
+): Promise<string> {
+  if (currentUrl && !currentUrl.startsWith('/api/')) return currentUrl;
+  if (!picId) return '';
+  if (storagePath) {
+    try {
+      return await getDownloadURL(ref(storage, storagePath));
+    } catch {
+      // fall through to extension probing
+    }
+  }
+  for (const ext of PHOTO_EXTS) {
+    try {
+      return await getDownloadURL(ref(storage, `letters/${picId}.${ext}`));
+    } catch {
+      // try next extension
+    }
+  }
+  return '';
+}
+
+// Delete Physical Letter Photo by picId from the bucket
+export async function deleteLetterPhoto(picId: string, ext?: string): Promise<void> {
   if (!picId) return;
-  await fetch(`/api/photos/${picId}`, { method: 'DELETE' });
+  const cleanExt = ext?.replace(/^\./, '').toLowerCase();
+  const exts = cleanExt ? [cleanExt] : PHOTO_EXTS;
+  for (const e of exts) {
+    try {
+      await deleteObject(ref(storage, `letters/${picId}.${e}`));
+      return;
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code !== 'storage/object-not-found') throw err;
+    }
+  }
 }
 
 // Get app parameter from Firestore
