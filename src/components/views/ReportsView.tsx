@@ -326,9 +326,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <th className="p-3">Nombre Niño</th>
                   <th className="p-3">Edad</th>
                   <th className="p-3">Género</th>
-                  <th className="p-3">Juguete</th>
-                  <th className="p-3">Ropa</th>
-                  <th className="p-3">Útil Escolar</th>
+                  <th className="p-3">Juguete (Opción 1)</th>
+                  <th className="p-3">Juguete (Opción 2)</th>
+                  <th className="p-3">Juguete (Opción 3)</th>
                   <th className="p-3">Líder</th>
                   {permissions.SCC && <th className="p-3">Coordinador</th>}
                 </tr>
@@ -348,8 +348,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       <td className="p-3 font-mono">{l.age}</td>
                       <td className="p-3">{l.gender}</td>
                       <td className="p-3 font-medium text-slate-800">{l.toyRequest}</td>
-                      <td className="p-3 text-slate-600">{l.clothingRequest || '—'}</td>
-                      <td className="p-3 text-slate-600">{l.schoolItemRequest || '—'}</td>
+                      <td className="p-3 text-slate-600">{l.toyRequested2 || '—'}</td>
+                      <td className="p-3 text-slate-600">{l.toyRequested3 || '—'}</td>
                       <td className="p-3 text-slate-700">{l.leaderName || 'Sin asignar'}</td>
                       {permissions.SCC && (
                         <td className="p-3 text-slate-700">{l.coordinatorName || 'Sin asignar'}</td>

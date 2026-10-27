@@ -2,7 +2,7 @@ export type Language = 'es' | 'en';
 
 export const translations = {
   es: {
-    appTitle: 'Misión regalo',
+    appTitle: 'Misión Regalo',
     tagline: 'Llevando alegría y regalos a niños de escuelas primarias para Navidad',
     phases: {
       phase1: 'Fase 1: Cartas de Niños',
@@ -52,7 +52,7 @@ export const translations = {
       subtitle: 'Peticiones de los niños con folio físico, foto y prioridad de Juguete',
       newLetter: 'Nueva Carta',
       bulkAssign: 'Asignación Masiva',
-      searchPlaceholder: 'Buscar por folio, niño, escuela, teléfono...',
+      searchPlaceholder: 'Buscar por folio, niño, escuela...',
       filterLeader: 'Filtrar Líder',
       filterCoord: 'Filtrar Coordinador',
       filterSchool: 'Filtrar Escuela',
@@ -65,8 +65,8 @@ export const translations = {
       gender: 'Género',
       school: 'Escuela',
       toy: '1. Juguete (Prioridad)',
-      clothing: '2. Ropa',
-      schoolItem: '3. Útil Escolar',
+      clothing: '2. Juguete',
+      schoolItem: '3. Juguete',
       leader: 'Líder',
       coordinator: 'Coordinador',
       donor: 'Padrino',
@@ -221,7 +221,7 @@ export const translations = {
       subtitle: 'Physical folio, photo attachment, and Toy priority',
       newLetter: 'New Letter',
       bulkAssign: 'Bulk Assignment',
-      searchPlaceholder: 'Search by folio, kid name, school, phone...',
+      searchPlaceholder: 'Search by folio, kid name, school...',
       filterLeader: 'Filter Leader',
       filterCoord: 'Filter Coordinator',
       filterSchool: 'Filter School',
@@ -234,8 +234,8 @@ export const translations = {
       gender: 'Gender',
       school: 'School',
       toy: '1. Toy (Priority)',
-      clothing: '2. Clothing',
-      schoolItem: '3. School Item',
+      clothing: '2. Toy',
+      schoolItem: '3. Toy',
       leader: 'Leader',
       coordinator: 'Coordinator',
       donor: 'Donor',

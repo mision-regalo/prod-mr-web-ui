@@ -2,6 +2,12 @@ import React from 'react';
 import { RolePermissions, User } from '../../types';
 import { Language, translations } from '../../i18n/translations';
 import {
+  isReasignacionManualVisible,
+  isSimularReasignacionVisible,
+  isRecordatoriosVisible,
+  isArchivoVisible,
+} from '../../utils/env';
+import {
   LayoutDashboard,
   Mail,
   Archive,
@@ -68,11 +74,11 @@ export const VuetifyDrawer: React.FC<VuetifyDrawerProps> = ({
       icon: UserCheck, 
       visible: permissions.CL || permissions.CC || permissions.CD 
     },    { id: 'bulk-assign', label: language === 'es' ? 'Asignación Masiva' : 'Bulk Letter Assignment', icon: Layers, visible: (currentUser.roleName || '').toLowerCase() !== 'coordinator' && currentUser.roleId !== 'ROLE-COORD' && (currentUser.roleName === 'Admin' || currentUser.roleName === 'Leader' || permissions.CLett) },
-    { id: 'reassign-sim', label: t.nav.reassignSim, icon: Wand2, visible: permissions.RP },
-    { id: 'reassign-manual', label: t.nav.reassignManual, icon: GitMerge, visible: permissions.RP },
+    { id: 'reassign-sim', label: t.nav.reassignSim, icon: Wand2, visible: permissions.RP && isSimularReasignacionVisible() && (currentUser.roleName || '').toLowerCase() === 'admin' },
+    { id: 'reassign-manual', label: t.nav.reassignManual, icon: GitMerge, visible: permissions.RP && isReasignacionManualVisible() },
     { id: 'reports', label: t.nav.reports, icon: BarChart3, visible: (currentUser.roleName || '').toLowerCase() !== 'coordinator' && currentUser.roleId !== 'ROLE-COORD' },
-    { id: 'archive', label: t.nav.archive, icon: Archive, visible: (currentUser.roleName || '').toLowerCase() === 'admin' },
-    { id: 'reminders', label: t.nav.reminders, icon: BellRing, visible: permissions.SER || permissions.SWR },
+    { id: 'archive', label: t.nav.archive, icon: Archive, visible: (currentUser.roleName || '').toLowerCase() === 'admin' && isArchivoVisible() },
+    { id: 'reminders', label: t.nav.reminders, icon: BellRing, visible: (permissions.SER || permissions.SWR) && isRecordatoriosVisible() },
     { id: 'users', label: t.nav.users, icon: Users, visible: permissions.CL },
   ];
 

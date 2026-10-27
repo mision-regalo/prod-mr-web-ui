@@ -6,6 +6,8 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    // Expose DEPLOYED_ENV and SHOW_* feature flags (in addition to the default VITE_ prefix) to client code via import.meta.env.
+    envPrefix: ['VITE_', 'DEPLOYED_ENV', 'SHOW_'],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

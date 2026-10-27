@@ -215,6 +215,8 @@ export const LettersView: React.FC<LettersViewProps> = ({
 
   // Modals state
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const firstAddFieldRef = React.useRef<HTMLSelectElement>(null);
+  const saveAndAddBtnRef = React.useRef<HTMLButtonElement>(null);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [selectedLetterForGift, setSelectedLetterForGift] = useState<Letter | null>(null);
@@ -228,12 +230,11 @@ export const LettersView: React.FC<LettersViewProps> = ({
   const [editKidName, setEditKidName] = useState('');
   const [editAge, setEditAge] = useState(8);
   const [editGender, setEditGender] = useState<'Niño' | 'Niña'>('Niño');
-  const [editPhone, setEditPhone] = useState('');
   const [editToy, setEditToy] = useState('');
-  const [editClothing, setEditClothing] = useState('');
+  const [editToy2, setEditToy2] = useState('');
   const [editClothingSize, setEditClothingSize] = useState('');
   const [editShoeSize, setEditShoeSize] = useState('');
-  const [editSchoolItem, setEditSchoolItem] = useState('');
+  const [editToy3, setEditToy3] = useState('');
   const [editCoordId, setEditCoordId] = useState('');
   const [editLeaderId, setEditLeaderId] = useState('');
   const [editDonorId, setEditDonorId] = useState('');
@@ -258,12 +259,11 @@ export const LettersView: React.FC<LettersViewProps> = ({
   const [formKidName, setFormKidName] = useState('');
   const [formAge, setFormAge] = useState(8);
   const [formGender, setFormGender] = useState<'Niño' | 'Niña'>('Niño');
-  const [formPhone, setFormPhone] = useState('');
   const [formToy, setFormToy] = useState('');
-  const [formClothing, setFormClothing] = useState('');
+  const [formToy2, setFormToy2] = useState('');
   const [formClothingSize, setFormClothingSize] = useState('');
   const [formShoeSize, setFormShoeSize] = useState('');
-  const [formSchoolItem, setFormSchoolItem] = useState('');
+  const [formToy3, setFormToy3] = useState('');
   const [formCoordId, setFormCoordId] = useState('');
   const [formLeaderId, setFormLeaderId] = useState('');
   const [formPhotoUrl, setFormPhotoUrl] = useState('');
@@ -468,7 +468,6 @@ export const LettersView: React.FC<LettersViewProps> = ({
         l.id.toLowerCase().includes(query) ||
         String(l.folio).includes(query) ||
         l.kidName.toLowerCase().includes(query) ||
-        l.celphone.includes(query) ||
         l.toyRequest.toLowerCase().includes(query);
 
       if (!matchSearch) return false;
@@ -517,38 +516,38 @@ export const LettersView: React.FC<LettersViewProps> = ({
     }
   };
 
-  const handleCreateLetter = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formKidName.trim()) return;
+  // Builds and validates the new letter from current form state.
+  // Returns null (without side effects) when validation fails.
+  const buildNewLetterFromForm = (): Letter | null => {
+    if (!formKidName.trim()) return null;
 
     // Guard: Folio must be unique for chosen Tipo de Folio
     if (letters.some((l) => l.folioType === formFolioType && Number(l.folio) === Number(formFolio))) {
-      return;
+      return null;
     }
 
     const letterId = `${formFolioType}-${formFolio}`;
-    
+
     // For Coordinators, enforce auto-assignment
     const myCoord = coordinators.find((c) => c.email === currentUser?.email);
     const finalCoordId = isCoordinator ? myCoord?.id : formCoordId;
-    const finalLeaderId = isCoordinator 
-      ? myCoord?.leaderId 
+    const finalLeaderId = isCoordinator
+      ? myCoord?.leaderId
       : formLeaderId;
 
     const selectedLeader = leaders.find((ld) => ld.id === finalLeaderId);
     const selectedCoord = coordinators.find((c) => c.id === finalCoordId);
 
-    const newLetter: Letter = {
+    return {
       id: letterId,
       folioType: formFolioType,
       folio: Number(formFolio),
       kidName: formKidName.trim(),
       age: formAge,
       gender: formGender,
-      celphone: formPhone || '33 0000 0000',
       toyRequest: formToy,
-      clothingRequest: formClothing,
-      schoolItemRequest: formSchoolItem,
+      toyRequested2: formToy2,
+      toyRequested3: formToy3,
       clothingSize: formClothingSize,
       shoeSize: formShoeSize,
       leaderId: selectedLeader?.id,
@@ -560,20 +559,38 @@ export const LettersView: React.FC<LettersViewProps> = ({
       presents: [],
       createdAt: new Date().toISOString().split('T')[0],
     };
+  };
 
-    onSaveLetter(newLetter);
-    setIsRegisterModalOpen(false);
-
-    // Reset Form
+  // Resets the per-letter fields after saving, keeping Tipo de Folio/Coordinador/Líder
+  // so a batch of letters for the same event can be captured quickly.
+  const resetAddLetterForm = () => {
     setFormKidName('');
     setFormToy('');
-    setFormClothing('');
+    setFormToy2('');
     setFormClothingSize('');
     setFormShoeSize('');
-    setFormSchoolItem('');
-    setFormPhone('');
+    setFormToy3('');
     setFormPhotoUrl('');
+    setPhotoSizeError(null);
     setFormFolio(getNextAvailableFolio(formFolioType));
+  };
+
+  const handleCreateLetter = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const newLetter = buildNewLetterFromForm();
+    if (!newLetter) return;
+
+    onSaveLetter(newLetter);
+    resetAddLetterForm();
+
+    // "Guardar y Agregar" keeps the modal open and focuses the first field so the
+    // next letter can be captured immediately; "Guardar Carta" closes the modal.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (submitter?.value === 'saveAndAdd') {
+      firstAddFieldRef.current?.focus();
+    } else {
+      setIsRegisterModalOpen(false);
+    }
   };
 
   const handleSavePresent = (e: React.FormEvent) => {
@@ -581,7 +598,9 @@ export const LettersView: React.FC<LettersViewProps> = ({
     if (!selectedLetterForGift) return;
 
     const newPresent: PresentItem = {
-      id: `PRS-${Date.now()}`,
+      // crypto.randomUUID() guarantees uniqueness across the whole letters collection,
+      // unlike a timestamp which could collide if two presents are saved in the same millisecond.
+      id: `PRS-${crypto.randomUUID()}`,
       type: giftType,
       description: giftDesc || `${giftType} para ${giftGender}`,
       ageRange: giftAgeRange,
@@ -606,6 +625,23 @@ export const LettersView: React.FC<LettersViewProps> = ({
   };
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Keyboard shortcut: Alt+A triggers "Guardar y Agregar" while the Add Letter modal is open.
+  const canSaveAndAddLetter =
+    !isAddFolioDuplicate && !!formKidName.trim() && !!formToy.trim() && !isUploadingPhoto;
+  useEffect(() => {
+    if (!isRegisterModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.code === 'KeyA') {
+        e.preventDefault();
+        if (canSaveAndAddLetter) {
+          saveAndAddBtnRef.current?.form?.requestSubmit(saveAndAddBtnRef.current);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRegisterModalOpen, canSaveAndAddLetter]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -645,12 +681,11 @@ export const LettersView: React.FC<LettersViewProps> = ({
     setEditKidName(letter.kidName || '');
     setEditAge(letter.age ? Math.min(Math.max(Number(letter.age), 3), 15) : 8);
     setEditGender(letter.gender || 'Niño');
-    setEditPhone(letter.celphone || '');
     setEditToy(letter.toyRequest || '');
-    setEditClothing(letter.clothingRequest || '');
+    setEditToy2(letter.toyRequested2 || '');
     setEditClothingSize(letter.clothingSize || '');
     setEditShoeSize(letter.shoeSize || '');
-    setEditSchoolItem(letter.schoolItemRequest || '');
+    setEditToy3(letter.toyRequested3 || '');
 
     if (isCoordinator) {
       const myCoord =
@@ -830,12 +865,11 @@ export const LettersView: React.FC<LettersViewProps> = ({
       kidName: editKidName.trim(),
       age: editAge,
       gender: editGender,
-      celphone: editPhone.trim() || '33 0000 0000',
       toyRequest: editToy.trim(),
-      clothingRequest: editClothing.trim(),
+      toyRequested2: editToy2.trim(),
       clothingSize: editClothingSize.trim(),
       shoeSize: editShoeSize.trim(),
-      schoolItemRequest: editSchoolItem.trim(),
+      toyRequested3: editToy3.trim(),
       photoUrl: editPhotoUrl || undefined,
       picId: editPicId || undefined,
       photoMetadata: editPhotoMetadata || undefined,
@@ -1187,7 +1221,7 @@ export const LettersView: React.FC<LettersViewProps> = ({
                       <td className="p-3 whitespace-nowrap">
                         <div className="font-semibold text-slate-900 dark:text-white">{l.kidName}</div>
                         <div className="text-[11px] text-slate-500">
-                          {l.age}a · {l.gender} · {l.celphone}
+                          {l.age}a · {l.gender}
                         </div>
                       </td>
 
@@ -1324,6 +1358,7 @@ export const LettersView: React.FC<LettersViewProps> = ({
                     {language === 'es' ? 'Tipo de Folio (Día de Entrega) *' : 'Folio Type (Delivery Day) *'}
                   </label>
                   <select
+                    ref={firstAddFieldRef}
                     value={formFolioType}
                     onChange={(e) => {
                       const newType = e.target.value;
@@ -1409,19 +1444,6 @@ export const LettersView: React.FC<LettersViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  {language === 'es' ? 'Teléfono Celular *' : 'Cell Phone *'}
-                </label>
-                <input
-                  type="text"
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  placeholder="33 1234 5678"
-                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
@@ -1469,25 +1491,25 @@ export const LettersView: React.FC<LettersViewProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {language === 'es' ? 'Opción 2: Ropa' : 'Option 2: Clothing'}
+                      {language === 'es' ? 'Opción 2: Juguete' : 'Option 2: Toy'}
                     </label>
                     <input
                       type="text"
-                      value={formClothing}
-                      onChange={(e) => setFormClothing(e.target.value)}
-                      placeholder={language === 'es' ? 'Sudadera talla 10...' : 'Sweater size 10...'}
+                      value={formToy2}
+                      onChange={(e) => setFormToy2(e.target.value)}
+                      placeholder={language === 'es' ? 'Ej. Rompecabezas, pelota...' : 'e.g. Puzzle, ball...'}
                       className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
                     <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {language === 'es' ? 'Opción 3: Útil Escolar' : 'Option 3: School Item'}
+                      {language === 'es' ? 'Opción 3: Juguete' : 'Option 3: Toy'}
                     </label>
                     <input
                       type="text"
-                      value={formSchoolItem}
-                      onChange={(e) => setFormSchoolItem(e.target.value)}
-                      placeholder={language === 'es' ? 'Mochila reforzada...' : 'Reinforced backpack...'}
+                      value={formToy3}
+                      onChange={(e) => setFormToy3(e.target.value)}
+                      placeholder={language === 'es' ? 'Ej. Peluche, juego de mesa...' : 'e.g. Plush toy, board game...'}
                       className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1595,7 +1617,26 @@ export const LettersView: React.FC<LettersViewProps> = ({
                   {language === 'es' ? 'Cancelar' : 'Cancel'}
                 </button>
                 <button
+                  ref={saveAndAddBtnRef}
                   type="submit"
+                  name="intent"
+                  value="saveAndAdd"
+                  disabled={!canSaveAndAddLetter}
+                  title={
+                    language === 'es'
+                      ? 'Guarda esta carta y deja el formulario listo para capturar la siguiente (Alt+A)'
+                      : 'Save this letter and keep the form ready to capture the next one (Alt+A)'
+                  }
+                  className="flex items-center gap-1.5 px-4 py-2 font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{language === 'es' ? 'Guardar y Agregar' : 'Save and Add Another'}</span>
+                  <span className="text-[10px] font-mono opacity-70 hidden sm:inline">Alt+A</span>
+                </button>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="save"
                   disabled={isAddFolioDuplicate || !formKidName.trim() || isUploadingPhoto}
                   className="px-4 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg shadow-2xs transition-colors"
                 >
@@ -2111,8 +2152,8 @@ export const LettersView: React.FC<LettersViewProps> = ({
                   </div>
                 </div>
 
-                {/* Gender & Phone */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Gender */}
+                <div className="grid grid-cols-1 gap-3">
                   <div>
                     <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                       {language === 'es' ? 'Género *' : 'Gender *'}
@@ -2130,25 +2171,6 @@ export const LettersView: React.FC<LettersViewProps> = ({
                       <option value="Niño">{language === 'es' ? 'Niño' : 'Boy'}</option>
                       <option value="Niña">{language === 'es' ? 'Niña' : 'Girl'}</option>
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                      {language === 'es' ? 'Teléfono Celular *' : 'Cell Phone *'}
-                    </label>
-                    <input
-                      type="text"
-                      readOnly={isClosedToEdit}
-                      disabled={isClosedToEdit}
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="33 1234 5678"
-                      className={`w-full p-2 rounded-lg border transition-colors ${
-                        isClosedToEdit
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-700'
-                          : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:border-blue-500'
-                      }`}
-                    />
                   </div>
                 </div>
 
@@ -2178,15 +2200,15 @@ export const LettersView: React.FC<LettersViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                        {language === 'es' ? 'Opción 2: Ropa' : 'Option 2: Clothing'}
+                        {language === 'es' ? 'Opción 2: Juguete' : 'Option 2: Toy'}
                       </label>
                       <input
                         type="text"
                         readOnly={isClosedToEdit}
                         disabled={isClosedToEdit}
-                        value={editClothing}
-                        onChange={(e) => setEditClothing(e.target.value)}
-                        placeholder="Sudadera talla 10..."
+                        value={editToy2}
+                        onChange={(e) => setEditToy2(e.target.value)}
+                        placeholder="Rompecabezas, pelota..."
                         className={`w-full p-2 rounded-lg border transition-colors ${
                           isClosedToEdit
                             ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-700'
@@ -2236,15 +2258,15 @@ export const LettersView: React.FC<LettersViewProps> = ({
 
                     <div>
                       <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                        {language === 'es' ? 'Opción 3: Útil Escolar' : 'Option 3: School Item'}
+                        {language === 'es' ? 'Opción 3: Juguete' : 'Option 3: Toy'}
                       </label>
                       <input
                         type="text"
                         readOnly={isClosedToEdit}
                         disabled={isClosedToEdit}
-                        value={editSchoolItem}
-                        onChange={(e) => setEditSchoolItem(e.target.value)}
-                        placeholder="Mochila reforzada..."
+                        value={editToy3}
+                        onChange={(e) => setEditToy3(e.target.value)}
+                        placeholder="Peluche, juego de mesa..."
                         className={`w-full p-2 rounded-lg border transition-colors ${
                           isClosedToEdit
                             ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed border-slate-200 dark:border-slate-700'

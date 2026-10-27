@@ -12,10 +12,9 @@ export function exportLettersToExcel(
       'Nombre del Niño': l.kidName,
       'Edad': l.age,
       'Género': l.gender,
-      'Teléfono': l.celphone,
-      'Juguete Solicitado': l.toyRequest,
-      'Ropa Solicitada': l.clothingRequest,
-      'Útil Escolar': l.schoolItemRequest,
+      'Opción 1: Juguete': l.toyRequest,
+      'Opción 2: Juguete': l.toyRequested2,
+      'Opción 3: Juguete': l.toyRequested3,
       'Líder': l.leaderName || 'Sin Asignar',
     };
 

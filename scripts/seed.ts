@@ -20,6 +20,16 @@ function cleanData<T>(obj: T): T {
 }
 
 async function seed() {
+  // Safety check: refuse to seed/reset data when DEPLOYED_ENV is PROD (default when unset).
+  const deployedEnv = (process.env.DEPLOYED_ENV || 'PROD').toUpperCase();
+  if (deployedEnv === 'PROD') {
+    console.error(
+      '❌ Refusing to run: DEPLOYED_ENV is PROD (or unset). This script would overwrite production Firestore data.\n' +
+        '   Set DEPLOYED_ENV=UAT or DEPLOYED_ENV=DEV to run this script intentionally.'
+    );
+    process.exit(1);
+  }
+
   console.log('Seeding all collections to Firestore database:', firebaseConfig.firestoreDatabaseId);
 
   // 1. Letters

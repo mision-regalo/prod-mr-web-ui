@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { RolePermissions, User } from '../../types';
 import { Language, translations } from '../../i18n/translations';
 import {
+  isSimularReasignacionVisible,
+  isRecordatoriosVisible,
+  isArchivoVisible,
+} from '../../utils/env';
+import {
   LayoutDashboard,
   Mail,
   Shuffle,
@@ -36,11 +41,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   const t = translations[language];
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const isCoordinator = (currentUser?.roleName || '').toLowerCase() === 'coordinator' || currentUser?.roleId === 'ROLE-COORD';
+  const isAdmin = (currentUser?.roleName || '').toLowerCase() === 'admin';
 
   const mainTabs = [
     { id: 'dashboard', label: t.nav.dashboard, icon: LayoutDashboard },
     { id: 'letters', label: t.nav.letters, icon: Mail },
-    { id: 'reassign-sim', label: t.nav.reassignSim, icon: Shuffle, requires: permissions.RP },
+    { id: 'reassign-sim', label: t.nav.reassignSim, icon: Shuffle, requires: permissions.RP && isSimularReasignacionVisible() && isAdmin },
     { id: 'reports', label: t.nav.reports, icon: BarChart3, requires: !isCoordinator },
   ];
 
@@ -63,8 +69,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       requires: !isCoordinator && (currentUser?.roleName === 'Admin' || currentUser?.roleName === 'Leader' || permissions.CLett),
     },
     { id: 'users', label: t.nav.users, icon: Users, requires: permissions.CL },
-    { id: 'archive', label: t.nav.archive, icon: Archive, requires: !isCoordinator },
-    { id: 'reminders', label: t.nav.reminders, icon: BellRing, requires: permissions.SER || permissions.SWR },
+    { id: 'archive', label: t.nav.archive, icon: Archive, requires: !isCoordinator && isArchivoVisible() },
+    { id: 'reminders', label: t.nav.reminders, icon: BellRing, requires: (permissions.SER || permissions.SWR) && isRecordatoriosVisible() },
   ];
 
   const handleSelect = (viewId: string) => {

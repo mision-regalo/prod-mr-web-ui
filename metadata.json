@@ -1,6 +1,6 @@
 {
-  "name": "Gift Mission / Misión regalo",
-  "description": "App for NGO Christmas gift drives: letters management, gift-giving day events, closing capture, surplus reassignment and multi-role RBAC.",
+  "name": "Misión Regalo",
+  "description": "App for NGO Christmas gift drives.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

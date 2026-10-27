@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { User, Role } from '../../types';
 import { Language, translations } from '../../i18n/translations';
 import { User as FirebaseUser } from 'firebase/auth';
+import { isProdEnv } from '../../utils/env';
+import appLogo from '../../assets/images/mision_presentes_logo_1791611048130.jpg';
 import {
   Menu,
   Moon,
@@ -51,6 +53,7 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
   const t = translations[language];
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
+  const isProd = isProdEnv();
 
   // Compute text avatar initials
   const initials = currentUser.name
@@ -75,8 +78,8 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
 
         <div className="w-9 h-9 rounded-lg overflow-hidden bg-emerald-50 dark:bg-emerald-950 border border-emerald-200/80 dark:border-emerald-800 flex items-center justify-center shrink-0">
           <img
-            src="/src/assets/images/mision_presentes_logo_1791611048130.jpg"
-            alt="Logo Misión regalo"
+            src={appLogo}
+            alt="Logo Misión Regalo"
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
           />
@@ -102,6 +105,7 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
             <span className="text-[9px] px-1 py-0.2 bg-emerald-200/60 dark:bg-emerald-900 rounded font-semibold">Firebase Live</span>
           </div>
         ) : (
+          !isProd &&
           onGoogleSignIn && (
             <button
               onClick={onGoogleSignIn}
@@ -132,6 +136,7 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
         )}
 
         {/* Quick User/Role Switcher Dropdown */}
+        {!isProd && (
         <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-1 hidden xl:inline">
             {language === 'es' ? 'Simular Rol:' : 'Role:'}
@@ -151,6 +156,7 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
             ))}
           </select>
         </div>
+        )}
 
         {/* Dark Mode Toggle */}
         <button
@@ -246,7 +252,7 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
                 </button>
               )}
 
-              {onSyncCollections && (
+              {onSyncCollections && !isProd && (
                 <button
                   onClick={() => {
                     onSyncCollections();

@@ -66,6 +66,16 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Reassignations collection (audit trail of manual present transfers)
+    match /reassignations/{reassignationId} {
+      allow read, write: if true;
+    }
+
+    // Simulation collection (system-suggested reassignment pairings pending execution)
+    match /simulation/{simulationId} {
+      allow read, write: if true;
+    }
+
     // App parameters collection
     match /app_parameters/{parameterId} {
       allow read, write: if true;

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_DIR="$HOME/mision-git"
+
+rsync -avuh --exclude='.*' "$BASE_DIR/uat-mr-web-ui/" "$BASE_DIR/prod-mr-web-ui/"

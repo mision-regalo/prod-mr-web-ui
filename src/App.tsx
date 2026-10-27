@@ -11,7 +11,8 @@ import {
   Donor,
   Role,
   PresentItem,
-  ReassignmentAction,
+  Reassignation,
+  Simulation,
   GiftGivingEvent,
   CustomRole,
   User,
@@ -49,7 +50,9 @@ import { ReportsView } from './components/views/ReportsView';
 import { RemindersView } from './components/views/RemindersView';
 import { VuetifyDocSpecView } from './components/views/VuetifyDocSpecView';
 import { AccessDeniedView } from './components/views/AccessDeniedView';
+import { LoginRequiredView } from './components/views/LoginRequiredView';
 import { ShieldAlert } from 'lucide-react';
+import { getDeployedEnv, isProdEnv } from './utils/env';
 import {
   auth,
   testConnection,
@@ -77,6 +80,8 @@ import {
   deleteRoleFromDb,
   saveUserToDb,
   deleteUserFromDb,
+  saveReassignationToDb,
+  deleteSimulationFromDb,
 } from './services/dbSync';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
@@ -90,6 +95,7 @@ export default function App() {
 
   // Firebase Auth & Cloud Sync State
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [isAuthResolved, setIsAuthResolved] = useState<boolean>(false);
   const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -103,6 +109,7 @@ export default function App() {
   const [leaders, setLeaders] = useState<Leader[]>(INITIAL_LEADERS);
   const [coordinators, setCoordinators] = useState<Coordinator[]>(INITIAL_COORDINATORS);
   const [donors, setDonors] = useState<Donor[]>(INITIAL_DONORS);
+  const [simulations, setSimulations] = useState<Simulation[]>([]);
 
   // Boot: Test connection, listen to Firebase Auth and real-time Firestore collections
   useEffect(() => {
@@ -111,10 +118,10 @@ export default function App() {
     // 0. Fetch App Parameters
     getAppParameter('HIDE_GIFT_MATCHING').then(setHideGiftMatching);
 
-    // 1. Test Firestore Connection & Seed Initial Data if empty
+    // 1. Test Firestore Connection & Seed Initial Data if empty (never auto-seed in PROD)
     testConnection().then((connected) => {
       setIsDbConnected(connected);
-      if (connected) {
+      if (connected && !isProdEnv()) {
         seedInitialFirestoreData();
       }
     });
@@ -122,6 +129,7 @@ export default function App() {
     // 2. Auth State Listener
     const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
+      setIsAuthResolved(true);
     });
 
     // 3. Realtime Firestore Sync
@@ -149,6 +157,11 @@ export default function App() {
       },
       onUsers: (remoteUsers) => {
         if (remoteUsers && remoteUsers.length > 0) setUsers(remoteUsers);
+      },
+      // Unlike the other collections, an empty result is valid here (e.g. right after
+      // a user's previous simulation batch is cleared), so it is always propagated.
+      onSimulations: (remoteSimulations) => {
+        setSimulations(remoteSimulations);
       },
     });
 
@@ -314,8 +327,12 @@ export default function App() {
     }
   };
 
-  // Populate/Sync all Firestore collections
+  // Populate/Sync all Firestore collections (disabled in PROD to prevent accidental data resets)
   const handleSyncCollections = async () => {
+    if (isProdEnv()) {
+      console.warn('Firestore seeding is disabled when DEPLOYED_ENV=PROD.');
+      return;
+    }
     setIsSyncing(true);
     try {
       await seedInitialFirestoreData(true);
@@ -932,76 +949,194 @@ export default function App() {
   };
 
   // Reassignments handlers
-  const handleExecuteSimulationReassignment = (actions: ReassignmentAction[]) => {
-    setLetters((prev) => {
-      let updated = [...prev];
 
-      actions.forEach((act) => {
-        const sourceIndex = updated.findIndex((l) => l.id === act.sourceLetterId);
-        const targetIndex = updated.findIndex((l) => l.id === act.targetLetterId);
+  // Executes a batch of previously-generated "simulation" suggestions. Processes
+  // selected ids sequentially against a single local working copy of `letters` (not
+  // the stale outer closure/state) so validation stays correct even when multiple
+  // selected rows reference the same origin or target letter within the same batch.
+  const handleExecuteSimulations = (
+    selectedIds: string[]
+  ): { executed: number; failed: { id: string; reason: string }[] } => {
+    const failed: { id: string; reason: string }[] = [];
+    const workingLetters = [...letters];
+    const lettersToSave = new Map<string, Letter>();
+    const reassignationsToSave: Reassignation[] = [];
+    const executedSimulationIds: string[] = [];
 
-        if (sourceIndex !== -1 && targetIndex !== -1) {
-          const sourceLetter = { ...updated[sourceIndex] };
-          const targetLetter = { ...updated[targetIndex] };
+    selectedIds.forEach((simId) => {
+      const sim = simulations.find((s) => s.id === simId);
+      if (!sim) {
+        failed.push({ id: simId, reason: 'Simulación no encontrada.' });
+        return;
+      }
 
-          sourceLetter.presents = sourceLetter.presents.filter((p) => p.id !== act.present.id);
+      const originIndex = workingLetters.findIndex((l) => l.id === sim.originLetterId);
+      const targetIndex = workingLetters.findIndex((l) => l.id === sim.targetLetterId);
 
-          const transferredPresent: PresentItem = {
-            ...act.present,
-            description: `${act.present.description} (Reasignado desde ${act.sourceLetterId})`,
-            receivedDate: new Date().toISOString().split('T')[0],
-          };
+      if (originIndex === -1 || targetIndex === -1) {
+        failed.push({ id: simId, reason: 'Carta origen o destino no encontrada.' });
+        return;
+      }
 
-          targetLetter.presents = [...targetLetter.presents, transferredPresent];
+      const originLetter = workingLetters[originIndex];
+      const targetLetter = workingLetters[targetIndex];
 
-          updated[sourceIndex] = sourceLetter;
-          updated[targetIndex] = targetLetter;
+      const presentToMove = originLetter.presents.find((p) => p.id === sim.presentId);
+      if (!presentToMove) {
+        failed.push({ id: simId, reason: 'El regalo ya no está disponible en la carta origen.' });
+        return;
+      }
 
-          saveLetterToDb(sourceLetter);
-          saveLetterToDb(targetLetter);
-        }
+      // Guard: the origin letter must have more than 1 present (keeps at least 1 after moving).
+      if (originLetter.presents.length <= 1) {
+        failed.push({
+          id: simId,
+          reason: `La carta origen ${sim.originLetterId} ya no tiene regalos excedentes.`,
+        });
+        return;
+      }
+
+      // Guard: the target letter must currently have 0 presents.
+      if (targetLetter.presents.length !== 0) {
+        failed.push({
+          id: simId,
+          reason: `La carta destino ${sim.targetLetterId} ya tiene un regalo asignado.`,
+        });
+        return;
+      }
+
+      const updatedOrigin: Letter = {
+        ...originLetter,
+        presents: originLetter.presents.filter((p) => p.id !== sim.presentId),
+      };
+      const transferredPresent: PresentItem = {
+        ...presentToMove,
+        description: `${presentToMove.description} (Reasignación por simulación)`,
+        receivedDate: new Date().toISOString().split('T')[0],
+      };
+      const updatedTarget: Letter = {
+        ...targetLetter,
+        presents: [...targetLetter.presents, transferredPresent],
+      };
+
+      workingLetters[originIndex] = updatedOrigin;
+      workingLetters[targetIndex] = updatedTarget;
+      lettersToSave.set(updatedOrigin.id, updatedOrigin);
+      lettersToSave.set(updatedTarget.id, updatedTarget);
+
+      reassignationsToSave.push({
+        id: crypto.randomUUID(),
+        originLetterId: sim.originLetterId,
+        targetLetterId: sim.targetLetterId,
+        presentId: sim.presentId,
+        presentDescription: sim.presentDescription,
+        createdAt: new Date().toISOString(),
       });
-
-      return updated;
+      executedSimulationIds.push(simId);
     });
+
+    if (executedSimulationIds.length > 0) {
+      setLetters(workingLetters);
+      lettersToSave.forEach((l) => saveLetterToDb(l));
+      reassignationsToSave.forEach((r) => saveReassignationToDb(r));
+      executedSimulationIds.forEach((id) => deleteSimulationFromDb(id));
+    }
+
+    return { executed: executedSimulationIds.length, failed };
   };
 
   const handleManualTransfer = (
     sourceLetterId: string,
     presentId: string,
     targetLetterId: string
-  ) => {
-    setLetters((prev) => {
-      const updated = [...prev];
-      const sourceIndex = updated.findIndex((l) => l.id === sourceLetterId);
-      const targetIndex = updated.findIndex((l) => l.id === targetLetterId);
+  ): { success: boolean; error?: string } => {
+    const sourceLetter = letters.find((l) => l.id === sourceLetterId);
+    const targetLetter = letters.find((l) => l.id === targetLetterId);
 
-      if (sourceIndex !== -1 && targetIndex !== -1) {
-        const sourceLetter = { ...updated[sourceIndex] };
-        const targetLetter = { ...updated[targetIndex] };
+    if (!sourceLetter || !targetLetter) {
+      return { success: false, error: 'Carta origen o destino no encontrada.' };
+    }
 
-        const presentToMove = sourceLetter.presents.find((p) => p.id === presentId);
-        if (presentToMove) {
-          sourceLetter.presents = sourceLetter.presents.filter((p) => p.id !== presentId);
+    const presentToMove = sourceLetter.presents.find((p) => p.id === presentId);
+    if (!presentToMove) {
+      return { success: false, error: 'El regalo ya no está disponible en la carta origen.' };
+    }
 
-          const transferredPresent: PresentItem = {
-            ...presentToMove,
-            description: `${presentToMove.description} (Reasignación manual)`,
-            receivedDate: new Date().toISOString().split('T')[0],
-          };
+    // Guard: the origin letter must keep at least one present after the transfer.
+    if (sourceLetter.presents.length <= 1) {
+      return {
+        success: false,
+        error: 'No se puede reasignar: la carta origen debe conservar al menos un regalo.',
+      };
+    }
 
-          targetLetter.presents = [...targetLetter.presents, transferredPresent];
+    const updatedSourceLetter: Letter = {
+      ...sourceLetter,
+      presents: sourceLetter.presents.filter((p) => p.id !== presentId),
+    };
 
-          updated[sourceIndex] = sourceLetter;
-          updated[targetIndex] = targetLetter;
+    const transferredPresent: PresentItem = {
+      ...presentToMove,
+      description: `${presentToMove.description} (Reasignación manual)`,
+      receivedDate: new Date().toISOString().split('T')[0],
+    };
 
-          saveLetterToDb(sourceLetter);
-          saveLetterToDb(targetLetter);
-        }
-      }
-      return updated;
-    });
+    const updatedTargetLetter: Letter = {
+      ...targetLetter,
+      presents: [...targetLetter.presents, transferredPresent],
+    };
+
+    setLetters((prev) =>
+      prev.map((l) => {
+        if (l.id === sourceLetterId) return updatedSourceLetter;
+        if (l.id === targetLetterId) return updatedTargetLetter;
+        return l;
+      })
+    );
+
+    saveLetterToDb(updatedSourceLetter);
+    saveLetterToDb(updatedTargetLetter);
+
+    // Audit trail: persist the movement in its own collection.
+    const reassignation: Reassignation = {
+      id: crypto.randomUUID(),
+      originLetterId: sourceLetterId,
+      targetLetterId,
+      presentId: presentToMove.id,
+      presentDescription: presentToMove.description,
+      createdAt: new Date().toISOString(),
+    };
+    saveReassignationToDb(reassignation);
+
+    return { success: true };
   };
+
+  // Guard: Outside DEV, the app must not preset a logged-in user; require Google auth first.
+  // Wait for the initial auth-state check to resolve to avoid a flash of this screen
+  // for users with a valid, persisted Firebase session.
+  const requiresGoogleAuth = getDeployedEnv() !== 'DEV';
+  if (requiresGoogleAuth && !isAuthResolved) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          isDarkMode ? 'dark bg-slate-950' : 'bg-slate-100'
+        }`}
+      >
+        <div className="w-8 h-8 border-2 border-slate-300 dark:border-slate-700 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (requiresGoogleAuth && !firebaseUser) {
+    return (
+      <LoginRequiredView
+        language={language}
+        onLanguageChange={setLanguage}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onGoogleSignIn={handleGoogleSignIn}
+      />
+    );
+  }
 
   // Guard: If authenticated by Google but NOT in users collection, block access and display message
   if (isAccessDenied && firebaseUser) {
@@ -1040,21 +1175,23 @@ export default function App() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Responsive Desktop/Tablet Navigation Drawer */}
-        <div className="hidden md:block resize-x overflow-auto min-w-[200px] max-w-[400px] w-64">
-          <VuetifyDrawer
-            isOpen={isDrawerOpen}
-            activeView={activeView}
-            onSelectView={setActiveView}
-            currentUser={currentUser}
-            permissions={activePermissions}
-            language={language}
-            stats={{
-              totalLetters: activeLetters.length,
-              noDonorCount,
-              noPresentCount,
-            }}
-          />
-        </div>
+        {isDrawerOpen && (
+          <div className="hidden md:block resize-x overflow-auto min-w-[200px] max-w-[400px] w-64">
+            <VuetifyDrawer
+              isOpen={isDrawerOpen}
+              activeView={activeView}
+              onSelectView={setActiveView}
+              currentUser={currentUser}
+              permissions={activePermissions}
+              language={language}
+              stats={{
+                totalLetters: activeLetters.length,
+                noDonorCount,
+                noPresentCount,
+              }}
+            />
+          </div>
+        )}
 
         {/* Main Content Area (padded on bottom for mobile navigation bar) */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
@@ -1201,9 +1338,13 @@ export default function App() {
           {activeView === 'reassign-sim' && (
             <ReassignSimulationView
               letters={activeLetters}
+              events={events}
+              leaders={leaders}
+              simulations={simulations}
+              currentUser={currentUser}
               currentRole={currentUser.roleName as Role}
               language={language}
-              onExecuteSimulationReassignment={handleExecuteSimulationReassignment}
+              onExecuteSimulations={handleExecuteSimulations}
             />
           )}
 
