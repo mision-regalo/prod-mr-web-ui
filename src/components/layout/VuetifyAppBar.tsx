@@ -3,7 +3,7 @@ import { User, Role } from '../../types';
 import { Language, translations } from '../../i18n/translations';
 import { User as FirebaseUser } from 'firebase/auth';
 import { isProdEnv } from '../../utils/env';
-import appLogo from '../../assets/images/mision_presentes_logo_1791611048130.jpg';
+import appLogo from '../../assets/images/logo4.jpeg';
 import {
   Menu,
   Moon,
@@ -15,6 +15,7 @@ import {
   Users,
   Database,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface VuetifyAppBarProps {
@@ -93,6 +94,19 @@ export const VuetifyAppBar: React.FC<VuetifyAppBarProps> = ({
             {t.tagline}
           </span>
         </div>
+
+        {/* Non-PROD environment indicator: visible whenever DEPLOYED_ENV resolves to UAT/DEV */}
+        {!isProd && (
+          <span
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-700 text-amber-800 dark:text-amber-300 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide rounded-full shrink-0"
+            title={language === 'es' ? 'Este es un ambiente de pruebas, no de producción' : 'This is a testing environment, not production'}
+          >
+            <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">
+              {language === 'es' ? 'Ambiente de PRUEBAS' : 'Test Environment'}
+            </span>
+          </span>
+        )}
       </div>
 
       {/* Zone 2: Controls (Google Sign-In, Role Switcher, Dark Mode, Language, UI Spec) */}
