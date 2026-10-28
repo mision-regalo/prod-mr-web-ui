@@ -22,6 +22,21 @@ interface UsersManagementViewProps {
   onDeleteUser: (userId: string) => void;
 }
 
+// Computes the next sequential numeric suffix for a given ID prefix (e.g. "USR-04") from the
+// highest number currently in use, instead of array length. Array length breaks as soon as
+// records are deleted out of order (or all at once): a length-based ID can collide with an ID
+// still in use, silently overwriting it on save instead of creating a new record.
+function getNextSequentialNumber(items: { id: string }[], prefix: string): number {
+  const regex = new RegExp(`^${prefix}-(\\d+)$`);
+  const existingNums = items
+    .map((item) => {
+      const match = item.id.match(regex);
+      return match ? Number(match[1]) : NaN;
+    })
+    .filter((n) => !isNaN(n));
+  return existingNums.length === 0 ? 1 : Math.max(...existingNums) + 1;
+}
+
 export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
   users,
   roles,
@@ -95,7 +110,7 @@ export const UsersManagementView: React.FC<UsersManagementViewProps> = ({
     const matchedRole = roles.find((r) => r.id === userRoleId) || systemRoles[0] || roles[0];
 
     const newUser: User = {
-      id: editingUser ? editingUser.id : `USR-${String(users.length + 1).padStart(2, '0')}`,
+      id: editingUser ? editingUser.id : `USR-${String(getNextSequentialNumber(users, 'USR')).padStart(2, '0')}`,
       name: userName.trim(),
       email: userEmail.trim(),
       roleId: matchedRole?.id || 'ROLE-ADMIN',

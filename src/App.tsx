@@ -85,6 +85,21 @@ import {
 } from './services/dbSync';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
+// Computes the next sequential numeric suffix for a given ID prefix (e.g. "USR-04") from the
+// highest number currently in use, instead of array length. Array length breaks as soon as
+// records are deleted out of order (or all at once): a length-based ID can collide with an ID
+// still in use, silently overwriting it on save instead of creating a new record.
+function getNextSequentialNumber(items: { id: string }[], prefix: string): number {
+  const regex = new RegExp(`^${prefix}-(\\d+)$`);
+  const existingNums = items
+    .map((item) => {
+      const match = item.id.match(regex);
+      return match ? Number(match[1]) : NaN;
+    })
+    .filter((n) => !isNaN(n));
+  return existingNums.length === 0 ? 1 : Math.max(...existingNums) + 1;
+}
+
 export default function App() {
   // Appearance & Session State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -721,7 +736,7 @@ export default function App() {
         saveUserToDb(updatedUser);
         return prevUsers.map((u) => (u.id === existingUser.id ? updatedUser : u));
       } else {
-        const nextIdx = prevUsers.length + 1;
+        const nextIdx = getNextSequentialNumber(prevUsers, 'USR');
         let newUserId = `USR-${String(nextIdx).padStart(2, '0')}`;
         if (prevUsers.some((u) => u.id === newUserId)) {
           newUserId = `USR-${Date.now().toString().slice(-4)}`;
@@ -775,7 +790,7 @@ export default function App() {
         saveUserToDb(updatedUser);
         return prevUsers.map((u) => (u.id === existingUser.id ? updatedUser : u));
       } else {
-        const nextIdx = prevUsers.length + 1;
+        const nextIdx = getNextSequentialNumber(prevUsers, 'USR');
         let newUserId = `USR-${String(nextIdx).padStart(2, '0')}`;
         if (prevUsers.some((u) => u.id === newUserId)) {
           newUserId = `USR-${Date.now().toString().slice(-4)}`;

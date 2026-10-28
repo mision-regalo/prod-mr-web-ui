@@ -41,6 +41,21 @@ interface VolunteersViewProps {
   onUpdateDonorLetters?: (donorId: string, updatedLetterIds: string[]) => void;
 }
 
+// Computes the next sequential numeric suffix for a given ID prefix (e.g. "LDR-04") from the
+// highest number currently in use, instead of array length. Using array length breaks as soon
+// as records are deleted out of order (or all at once): the length-based ID can collide with an
+// ID still in use, silently overwriting it on save instead of creating a new record.
+function getNextSequentialNumber(items: { id: string }[], prefix: string): number {
+  const regex = new RegExp(`^${prefix}-(\\d+)$`);
+  const existingNums = items
+    .map((item) => {
+      const match = item.id.match(regex);
+      return match ? Number(match[1]) : NaN;
+    })
+    .filter((n) => !isNaN(n));
+  return existingNums.length === 0 ? 1 : Math.max(...existingNums) + 1;
+}
+
 export const VolunteersView: React.FC<VolunteersViewProps> = ({
   leaders,
   coordinators,
@@ -310,7 +325,7 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
       return;
     }
 
-    const nextIdNum = leaders.length + 1;
+    const nextIdNum = getNextSequentialNumber(leaders, 'LDR');
     const newL: Leader = {
       id: `LDR-${String(nextIdNum).padStart(2, '0')}`,
       firstName: leadFirstName.trim(),
@@ -318,7 +333,7 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
       email: cleanEmail,
       whatsapp: leadWhatsapp.trim(),
       teamColor: leadColor.trim(),
-      teamCode: String.fromCharCode(65 + leaders.length),
+      teamCode: String.fromCharCode(65 + nextIdNum - 1),
       coordinatorCount: 0,
     };
     onSaveLeader(newL);
@@ -353,7 +368,7 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
     }
 
     const parentLeader = leaders.find((l) => l.id === coordLeaderId);
-    const nextIdNum = coordinators.length + 1;
+    const nextIdNum = getNextSequentialNumber(coordinators, 'CRD');
     const newC: Coordinator = {
       id: `CRD-${String(nextIdNum).padStart(2, '0')}`,
       firstName: coordFirstName.trim(),
@@ -401,8 +416,9 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
       return;
     }
     const parentCoord = coordinators.find((c) => c.id === donorCoordId);
+    const nextIdNum = getNextSequentialNumber(donors, 'DNR');
     const newD: Donor = {
-      id: `DNR-0${donors.length + 1}`,
+      id: `DNR-${String(nextIdNum).padStart(2, '0')}`,
       firstName: donorFirstName,
       lastName: donorLastName,
       email: donorEmail,
@@ -684,7 +700,10 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
           <div className="flex items-center gap-2">
             {activeTab === 'leaders' && permissions.CL && currentRole !== 'Coordinator' && (
               <button
-                onClick={() => setIsLeaderModalOpen(true)}
+                onClick={() => {
+                  setAlertMessage(null);
+                  setIsLeaderModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs"
               >
                 <Plus className="w-4 h-4" />
@@ -694,7 +713,10 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
 
             {activeTab === 'coordinators' && permissions.CC && currentRole !== 'Coordinator' && (
               <button
-                onClick={() => setIsCoordModalOpen(true)}
+                onClick={() => {
+                  setAlertMessage(null);
+                  setIsCoordModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs"
               >
                 <Plus className="w-4 h-4" />
@@ -707,6 +729,7 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
                 onClick={() => {
                   if (isCoordinator && myCoord) setDonorCoordId(myCoord.id);
                   else if (!isCoordinator) setDonorCoordId(coordinators[0]?.id || '');
+                  setAlertMessage(null);
                   setIsDonorModalOpen(true);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs"
@@ -1279,6 +1302,7 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
                                   setNewCoordinatorId(
                                     coordinators.find((c) => c.id !== d.coordinatorId)?.id || ''
                                   );
+                                  setAlertMessage(null);
                                   setIsTransferModalOpen(true);
                                 }}
                                 className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
@@ -1344,6 +1368,27 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
               </button>
             </div>
             <form onSubmit={handleCreateLeader} className="space-y-3 text-xs">
+              {alertMessage && (
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                    alertMessage.type === 'error'
+                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{alertMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAlertMessage(null)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Nombre *</label>
@@ -1430,6 +1475,27 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
               </button>
             </div>
             <form onSubmit={handleCreateCoordinator} className="space-y-3 text-xs">
+              {alertMessage && (
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                    alertMessage.type === 'error'
+                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{alertMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAlertMessage(null)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Nombre *</label>
@@ -1682,6 +1748,28 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
               </button>
             </div>
 
+            {alertMessage && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                  alertMessage.type === 'error'
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{alertMessage.text}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAlertMessage(null)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1 text-xs">
               <span className="font-bold text-blue-900">Donante a Transferir:</span>
               <div className="text-blue-800 font-semibold">
@@ -1754,6 +1842,27 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveEditedLeader} className="space-y-3 text-xs">
+              {alertMessage && (
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                    alertMessage.type === 'error'
+                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{alertMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAlertMessage(null)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
@@ -1870,6 +1979,27 @@ export const VolunteersView: React.FC<VolunteersViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveEditedCoordinator} className="space-y-3 text-xs">
+              {alertMessage && (
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                    alertMessage.type === 'error'
+                      ? 'bg-rose-50 border-rose-200 text-rose-800'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{alertMessage.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAlertMessage(null)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
