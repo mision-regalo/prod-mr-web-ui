@@ -1411,7 +1411,7 @@ export const LettersView: React.FC<LettersViewProps> = ({
               </div>
 
               {/* Kid Name, Age, Gender, School */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="sm:col-span-2">
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     {language === 'es' ? 'Nombre del Niño *' : 'Kid Name *'}
@@ -1440,6 +1440,20 @@ export const LettersView: React.FC<LettersViewProps> = ({
                         {age}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {language === 'es' ? 'Género *' : 'Gender *'}
+                  </label>
+                  <select
+                    value={formGender}
+                    onChange={(e) => setFormGender(e.target.value as 'Niño' | 'Niña')}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  >
+                    <option value="Niño">{language === 'es' ? 'Niño' : 'Boy'}</option>
+                    <option value="Niña">{language === 'es' ? 'Niña' : 'Girl'}</option>
                   </select>
                 </div>
               </div>
