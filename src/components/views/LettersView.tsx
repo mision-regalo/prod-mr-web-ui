@@ -490,6 +490,12 @@ export const LettersView: React.FC<LettersViewProps> = ({
       if (statusFilter === 'surplus' && l.presents.length < 2) return false;
 
       return true;
+    }).sort((a, b) => {
+      // Sort by Folio Carta: Event Type (folioType) alphabetically first, then Folio number numerically
+      // so e.g. "G-2" sorts before "G-19" instead of the lexicographic "G-19" before "G-2".
+      const typeCompare = a.folioType.localeCompare(b.folioType);
+      if (typeCompare !== 0) return typeCompare;
+      return Number(a.folio) - Number(b.folio);
     });
   }, [
     roleScopedLetters,
