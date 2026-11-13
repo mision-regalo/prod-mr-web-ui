@@ -1399,6 +1399,8 @@ export default function App() {
                 leaders={leaders}
                 coordinators={coordinators}
                 schools={schools}
+                donors={donors}
+                events={events}
                 currentUser={currentUser}
                 currentRole={currentUser.roleName as Role}
                 language={language}

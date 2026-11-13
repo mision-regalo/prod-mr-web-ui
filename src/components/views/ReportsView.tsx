@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Letter, Leader, Coordinator, SchoolCatalogItem, Role, User } from '../../types';
+import { Letter, Leader, Coordinator, SchoolCatalogItem, Role, User, Donor, GiftGivingEvent } from '../../types';
 import { Language, translations } from '../../i18n/translations';
 import { PERMISSIONS_TABLE } from '../../data/mockData';
-import { exportLettersToExcel, exportSummaryStatsToExcel } from '../../utils/excelExport';
+import { exportLettersToExcel, exportSummaryStatsToExcel, exportDonorsToExcel, DonorReportRow } from '../../utils/excelExport';
 import {
   FileSpreadsheet,
   Download,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
+  HeartHandshake,
 } from 'lucide-react';
 
 interface ReportsViewProps {
@@ -21,6 +22,8 @@ interface ReportsViewProps {
   leaders: Leader[];
   coordinators: Coordinator[];
   schools: SchoolCatalogItem[];
+  donors?: Donor[];
+  events?: GiftGivingEvent[];
   currentUser?: User;
   currentRole: Role;
   language: Language;
@@ -31,6 +34,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   leaders,
   coordinators,
   schools,
+  donors = [],
+  events = [],
   currentUser,
   currentRole,
   language,
@@ -39,6 +44,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const permissions = PERMISSIONS_TABLE[currentRole];
 
   const userRoleLower = (currentUser?.roleName || currentRole).toLowerCase();
+  const isAdmin = userRoleLower === 'admin' || currentUser?.roleId === 'ROLE-ADMIN';
   const isLeader = userRoleLower === 'leader' || currentUser?.roleId === 'ROLE-LEADER';
 
   // Identify logged-in leader object
@@ -94,8 +100,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     );
   }, [letters, isLeader, myLeaderId, myLeaderName, umbrellaCoordIds, umbrellaCoordNames]);
 
-  // Active Report Tab: 'no-donors' | 'no-presents' | 'distribution'
-  const [activeTab, setActiveTab] = useState<'no-donors' | 'no-presents' | 'distribution'>('no-donors');
+  const [activeTab, setActiveTab] = useState<'no-donors' | 'no-presents' | 'distribution' | 'donors'>('no-donors');
+  const [filterDeliveryDay, setFilterDeliveryDay] = useState('');
 
   // Filters
   const [filterLeader, setFilterLeader] = useState('');
@@ -131,6 +137,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const filteredNoDonors = useMemo(() => applyFilters(noDonorLetters), [noDonorLetters, filterLeader, filterCoord, filterGender, filterAgeRange, permissions.SCC]);
   const filteredNoPresents = useMemo(() => applyFilters(noPresentsLetters), [noPresentsLetters, filterLeader, filterCoord, filterGender, filterAgeRange, permissions.SCC]);
 
+  // 3. Report: Donors (admin only) - one row per letter that has a donor
+  const donorRows = useMemo<DonorReportRow[]>(() => {
+    if (!isAdmin) return [];
+    const donorById = new Map(donors.map((d) => [d.id, d]));
+    return scopedLetters
+      .filter((l) => !!l.donorId)
+      .filter((l) => {
+        if (filterLeader && l.leaderId !== filterLeader) return false;
+        if (filterCoord && l.coordinatorId !== filterCoord) return false;
+        if (filterDeliveryDay && l.folioType !== filterDeliveryDay) return false;
+        return true;
+      })
+      .map((l) => {
+        const donor = donorById.get(l.donorId as string);
+        return {
+          letterId: l.id,
+          donorName: donor ? `${donor.firstName} ${donor.lastName}`.trim() : l.donorName || '',
+          phone: donor?.whatsapp || '',
+          delivered: l.presents.length > 0,
+          leaderName: l.leaderName || '',
+          coordinatorName: l.coordinatorName || '',
+          deliveryDay: l.folioType,
+        };
+      })
+      .sort((a, b) => a.donorName.localeCompare(b.donorName) || a.letterId.localeCompare(b.letterId));
+  }, [isAdmin, donors, scopedLetters, filterLeader, filterCoord, filterDeliveryDay]);
+
   // Distribution counts (umbrella scoped)
   const totalActive = scopedLetters;
   const dist3Plus = totalActive.filter((l) => l.presents.length >= 3).length;
@@ -152,6 +185,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         `Reporte_Cartas_Sin_Regalos_${new Date().toISOString().split('T')[0]}`,
         permissions.SCC
       );
+    } else if (activeTab === 'donors') {
+      exportDonorsToExcel(donorRows, `Reporte_Donantes_${new Date().toISOString().split('T')[0]}`);
     } else {
       exportSummaryStatsToExcel(
         totalActive,
@@ -241,6 +276,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <BarChart3 className="w-4 h-4 text-blue-500" />
             <span>{t.reports.distributionTab}</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('donors')}
+              className={`py-2 px-4 border-b-2 flex items-center gap-2 transition-all ${
+                activeTab === 'donors'
+                  ? 'border-emerald-600 text-emerald-700 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <HeartHandshake className="w-4 h-4 text-purple-500" />
+              <span>{t.reports.donorsTab} ({donorRows.length})</span>
+            </button>
+          )}
         </div>
 
         {/* Filters Bar for Reports 1 & 2 */}
@@ -288,8 +337,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             )}
 
 
+            {/* Delivery day filter (donors report) */}
+            {activeTab === 'donors' && (
+              <select
+                value={filterDeliveryDay}
+                onChange={(e) => setFilterDeliveryDay(e.target.value)}
+                className="p-1.5 bg-slate-50 border border-slate-200 rounded text-slate-700"
+              >
+                <option value="">Día de Entrega: Todos</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.id} - {ev.location} ({ev.dates})
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Gender filter */}
+            {activeTab !== 'donors' && (
             <select
               value={filterGender}
               onChange={(e) => setFilterGender(e.target.value)}
@@ -299,8 +364,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <option value="Niño">Niño</option>
               <option value="Niña">Niña</option>
             </select>
+            )}
 
             {/* Age Range filter */}
+            {activeTab !== 'donors' && (
             <select
               value={filterAgeRange}
               onChange={(e) => setFilterAgeRange(e.target.value)}
@@ -311,6 +378,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <option value="6-9">6 a 9 años</option>
               <option value="9-12">9 a 12 años</option>
             </select>
+            )}
           </div>
         )}
       </div>
@@ -354,6 +422,54 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {permissions.SCC && (
                         <td className="p-3 text-slate-700">{l.coordinatorName || 'Sin asignar'}</td>
                       )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: DONORS REPORT TABLE (admin only) */}
+      {activeTab === 'donors' && isAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px]">
+                  <th className="p-3">Nombre del Donante</th>
+                  <th className="p-3">Teléfono</th>
+                  <th className="p-3">ID de la Carta</th>
+                  <th className="p-3">Regalo(s) Entregado(s)</th>
+                  <th className="p-3">Líder</th>
+                  <th className="p-3">Coordinador</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {donorRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-400">
+                      No hay donantes bajo los filtros seleccionados.
+                    </td>
+                  </tr>
+                ) : (
+                  donorRows.map((r) => (
+                    <tr key={r.letterId} className="hover:bg-slate-50">
+                      <td className="p-3 font-semibold text-slate-900">{r.donorName || '—'}</td>
+                      <td className="p-3 font-mono">{r.phone || '—'}</td>
+                      <td className="p-3 font-mono font-bold text-slate-900">{r.letterId}</td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                            r.delivered ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {r.delivered ? 'Sí' : 'No'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-700">{r.leaderName || 'Sin asignar'}</td>
+                      <td className="p-3 text-slate-700">{r.coordinatorName || 'Sin asignar'}</td>
                     </tr>
                   ))
                 )}

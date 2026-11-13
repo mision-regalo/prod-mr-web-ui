@@ -59,3 +59,30 @@ export function exportSummaryStatsToExcel(letters: Letter[], fileName: string) {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumen Estadístico');
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 }
+
+export interface DonorReportRow {
+  letterId: string;
+  donorName: string;
+  phone: string;
+  delivered: boolean;
+  leaderName: string;
+  coordinatorName: string;
+  deliveryDay: string;
+}
+
+export function exportDonorsToExcel(rows: DonorReportRow[], fileName: string) {
+  const data = rows.map((r) => ({
+    'Nombre del Donante': r.donorName,
+    'Teléfono': r.phone,
+    'ID de la Carta': r.letterId,
+    'Día de Entrega': r.deliveryDay,
+    'Regalo(s) Entregado(s)': r.delivered ? 'Sí' : 'No',
+    'Líder': r.leaderName || 'Sin Asignar',
+    'Coordinador': r.coordinatorName || 'Sin Asignar',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Donantes');
+  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+}
